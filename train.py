@@ -10,6 +10,7 @@ import mean_mask as my
 import matplotlib.pylab as plt
 
 data_dir='G:/data/ultrasound-nerve-segmentation'
+bin_dir="E:/Tools/opencv/build/x64/vc14/bin"
 csv_data=None
 img_width=580
 img_height=420
@@ -85,10 +86,15 @@ def trace_box_imgs(img,img_mask,box, filename=""):
   # cv2.imshow("combined", combined)
   # k = cv2.waitKey(0)
 
-def generate_positive_dat_file():
+def generate_training_items():
+  global data_dir
+  global bin_dir
+  global img_width
+  global img_height
   train_folder='/train/'
   # train_folder='/tests/'
   dat_file_data=[]
+  negatives=[]
   for subject_id in range(1, 2):
     for file in [f for f in os.listdir(data_dir+train_folder) if re.match(r'{}_[0-9]+\.tif'.format(subject_id), f)]:
       filename, file_extension = os.path.splitext(file)
@@ -103,17 +109,33 @@ def generate_positive_dat_file():
       if x1:
         # print(x1,y1,w,h)
         # trace_box_imgs(img,img_mask,[x1,y1,w,h], filename=pos_img_path)
-        dat_file_data.append("{} 1 {} {} {} {}".format(pos_img_path,x1,y1,w,h))
+        dat_file_data.append("{} 1 {} {} {} {}".format("../train/"+file,x1,y1,w,h))
+      else:
+        negatives.append("{}".format("../train/"+file))
+
+  #Creates the positives.dat file
   with open(data_dir+"/opencv/positives.dat", 'w') as f:
     for item in dat_file_data:
       f.write("%s\n" % item)
-  return dat_file_data
+  #Creates the negatives.txt file
+  with open(data_dir+"/opencv/negatives.txt", 'w') as f:
+    for item in negatives:
+      f.write("%s\n" % item)
+  opencv_dir=data_dir+"/opencv"
+  numPos=len(dat_file_data)
+  numNeg=len(negatives)
+  #Samples command
+  print("{}/opencv_createsamples.exe -info {}/positives.dat -num {} -vec {}/positives.vec -w {} -h {}"
+  .format(bin_dir, opencv_dir, numPos, opencv_dir, img_width, img_height))
+  print()
+  #Train command
+  # opencv_traincascade -data "data" -vec "samples.vec" -bg "out_negatives.dat" -numPos 26000 -numNeg 4100 -numStages 16 -featureType LBP -w 20 -h 20 -bt GAB -minHitRate 0.995 -maxFalseAlarmRate 0.3 -weightTrimRate 0.95 -maxDepth 1 -maxWeakCount 100 -maxCatCount 256 -featSize 1
+  print("{}/opencv_traincascade.exe -data {}/data -vec {}/positives.vec -bg {}/negatives.txt -numPos {} -numNeg {} -numStages 2 -w {} -h {}".format(bin_dir, opencv_dir, opencv_dir, opencv_dir, numPos,numNeg, img_width, img_height))
     
 if __name__ == '__main__':
   from sys import argv
   load_csv_file()
-  dat = generate_positive_dat_file()
-  print("opencv_createsamples -info {}positives.dat -num {} -vec positives.vec -w {} -h {}".format(data_dir+"/opencv/", len(dat), img_width, img_height))
+  generate_training_items()
   # main(argv)
   #1 96
   # img=cv2.imread(data_dir+"/train/1_96.tif",0)
