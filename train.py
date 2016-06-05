@@ -20,13 +20,10 @@ def load_csv_file():
     with open(data_dir+"/train_masks.csv", 'rb') as csvfile:
       csvreader = csv.reader(csvfile, delimiter=',')
       csvreader.next()
-      c=0
       for item in csvreader:
         # print(item)
         rows.append(item)
-        c+=1
     csv_data = np.array(rows)
-    print("loaded {} CSV records".format(c))
 
 def get_pixels(subject_id,img_id):
   global csv_data
@@ -35,14 +32,14 @@ def get_pixels(subject_id,img_id):
       return row[2]
       
 
-def picel_to_box(pixels):
+def pixel_to_box(pixels):
   ''' Pixels run from top to bottom then to the right
   img_width=580
   img_height=420
   '''
   global img_width
   global img_height
-  X1=None
+  X1=0
   Y1=img_height
   X2=0
   Y2=0
@@ -66,50 +63,65 @@ def picel_to_box(pixels):
       Y2=_y + run_length
   # X2 the last pixel coordinate
   X2=_x
-      
   return X1,Y1, (X2-X1), (Y2-Y1)
     
-    
-  
-
-
-  
-  
 def get_mask_box(subject_id,filename):
   m=re.search('{}_([0-9]+)'.format(subject_id), filename)
   img_id = m.group(1)
   pixels = get_pixels(str(subject_id), img_id)
-  # print(str(subject_id)+" "+img_id+" ----- "+pixels)
-  # print(str(subject_id)+" "+str(m.group(1)))
-
-def generate_positive_dat_file():
-  for subject_id in range(1, 2):
-    for file in [f for f in os.listdir(data_dir+'/train/') if re.match(r'{}_[0-9]+\.tif'.format(subject_id), f)]:
-      filename, file_extension = os.path.splitext(file)
-      raw_img_mask = data_dir+"/train/"+filename+"_mask"+file_extension
-      # height, width = cv2.imread(raw_img_mask,0).shape[:2]
-      # print(width, height);
-      get_mask_box(subject_id,filename)
-    
-if __name__ == '__main__':
-  from sys import argv
-  # load_csv_file()
-  # generate_positive_dat_file()
-  # main(argv)
-  #1 96
-  img=cv2.imread(data_dir+"/train/1_96.tif",0)
-  mask_img=cv2.imread(data_dir+"/train/1_96_mask.tif",0)
-  edges = my.image_edges(mask_img)
+  if pixels :
+    return pixel_to_box(pixels)
+  else:
+    return None,None,None,None
+def trace_box_imgs(img,img_mask,box, filename=""):
+  edges = my.image_edges(img_mask)
   combined = my.image_with_mask(img, edges)
-  #328,66; 90x113
-  x1,y1,w,h=picel_to_box("137896 17 138315 20 138731 27 139145 34 139557 45 139976 47 140392 52 140811 54 141228 58 141643 63 142061 67 142478 70 142897 72 143316 74 143733 77 144152 78 144571 79 144990 82 145409 83 145828 84 146247 86 146666 88 147084 90 147502 93 147920 95 148340 95 148758 98 149177 99 149596 100 150015 101 150434 103 150854 103 151273 104 151692 106 152111 107 152530 108 152950 108 153369 109 153789 109 154208 110 154628 110 155048 110 155468 110 155888 110 156308 110 156728 109 157148 109 157568 109 157988 109 158408 108 158828 108 159248 108 159669 106 160090 105 160511 103 160931 103 161352 101 161773 99 162193 99 162613 99 163034 97 163455 96 163876 94 164297 93 164718 91 165138 91 165559 89 165980 88 166401 86 166821 85 167242 84 167663 82 168084 79 168505 77 168926 74 169347 71 169768 68 170189 64 170610 61 171031 58 171452 56 171874 52 172295 48 172716 43 173137 41 173558 38 173980 34 174402 28 174824 23 175247 18")
-  print("box: {},{}->{},{} ".format(x1,y1,w,h))
+  x1,y1,w,h=box
+  print(x1, y1, w,h)
   x2 = x1+w
   y2 = y1+h
   cv2.rectangle(combined, (x1, y1), (x2, y2), (0,0,255), 1)
+  cv2.imwrite(filename+".combined.png",combined)
+  cv2.imshow("combined", combined)
+  k = cv2.waitKey(0)
+
+def generate_positive_dat_file():
+  train_folder='/train/'
+  train_folder='/tests/'
+  for subject_id in range(1, 2):
+    for file in [f for f in os.listdir(data_dir+train_folder) if re.match(r'{}_[0-9]+\.tif'.format(subject_id), f)]:
+      filename, file_extension = os.path.splitext(file)
+      print("Processing image "+file)
+      raw_img_mask = data_dir+train_folder+filename+"_mask"+file_extension
+      pos_img_path=data_dir+train_folder+file
+      img=cv2.imread(pos_img_path,0)
+      img_mask=cv2.imread(raw_img_mask,0)
+      # height, width = cv2.imread(raw_img_mask,0).shape[:2]
+      # print(width, height);
+      x1,y1,w,h = get_mask_box(subject_id,filename)
+      if x1:
+        # print(x1,y1,w,h)
+        trace_box_imgs(img,img_mask,[x1,y1,w,h], filename=pos_img_path)
+    
+if __name__ == '__main__':
+  from sys import argv
+  load_csv_file()
+  generate_positive_dat_file()
+  # main(argv)
+  #1 96
+  # img=cv2.imread(data_dir+"/train/1_96.tif",0)
+  # mask_img=cv2.imread(data_dir+"/train/1_96_mask.tif",0)
+  # edges = my.image_edges(mask_img)
+  # combined = my.image_with_mask(img, edges)
+  # 328,66; 90x113
+  # x1,y1,w,h=pixel_to_box("137896 17 138315 20 138731 27 139145 34 139557 45 139976 47 140392 52 140811 54 141228 58 141643 63 142061 67 142478 70 142897 72 143316 74 143733 77 144152 78 144571 79 144990 82 145409 83 145828 84 146247 86 146666 88 147084 90 147502 93 147920 95 148340 95 148758 98 149177 99 149596 100 150015 101 150434 103 150854 103 151273 104 151692 106 152111 107 152530 108 152950 108 153369 109 153789 109 154208 110 154628 110 155048 110 155468 110 155888 110 156308 110 156728 109 157148 109 157568 109 157988 109 158408 108 158828 108 159248 108 159669 106 160090 105 160511 103 160931 103 161352 101 161773 99 162193 99 162613 99 163034 97 163455 96 163876 94 164297 93 164718 91 165138 91 165559 89 165980 88 166401 86 166821 85 167242 84 167663 82 168084 79 168505 77 168926 74 169347 71 169768 68 170189 64 170610 61 171031 58 171452 56 171874 52 172295 48 172716 43 173137 41 173558 38 173980 34 174402 28 174824 23 175247 18")
+  # print("box: {},{}->{},{} ".format(x1,y1,w,h))
+  # x2 = x1+w
+  # y2 = y1+h
+  # cv2.rectangle(combined, (x1, y1), (x2, y2), (0,0,255), 1)
   # cv2.imwrite("my.png",img)
   # cv2.imshow("lalala", img)
   # cv2.imwrite("combined.png",combined)
-  cv2.imshow("combined", combined)
+  # cv2.imshow("combined", combined)
   
-  k = cv2.waitKey(0) # 0==wait forever
+  # k = cv2.waitKey(0) # 0==wait forever

@@ -23,7 +23,8 @@ import cv2
 def image_with_mask(img, mask):
   # returns a copy of the image with edges of the mask added in red
   img_color = grays_to_RGB(img)
-  mask_edges = cv2.Canny(mask, 100, 200) > 0  
+  # img_color=img
+  mask_edges = cv2.Canny(mask, 100, 200) > 0
   img_color[mask_edges, 0] = 255  # set channel 0 to bright red, green & blue channels to 0
   img_color[mask_edges, 1] = 0
   img_color[mask_edges, 2] = 0
@@ -42,6 +43,7 @@ def image_edges(color_img):
 def grays_to_RGB(img):
   # turn 2D grayscale image into grayscale RGB
   return np.dstack((img, img, img))
+  
 def mask_not_blank(mask):
   return sum(mask.flatten()) > 0
 
