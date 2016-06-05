@@ -77,21 +77,22 @@ def trace_box_imgs(img,img_mask,box, filename=""):
   edges = my.image_edges(img_mask)
   combined = my.image_with_mask(img, edges)
   x1,y1,w,h=box
-  print(x1, y1, w,h)
+  # print(x1, y1, w,h)
   x2 = x1+w
   y2 = y1+h
   cv2.rectangle(combined, (x1, y1), (x2, y2), (0,0,255), 1)
   cv2.imwrite(filename+".combined.png",combined)
-  cv2.imshow("combined", combined)
-  k = cv2.waitKey(0)
+  # cv2.imshow("combined", combined)
+  # k = cv2.waitKey(0)
 
 def generate_positive_dat_file():
   train_folder='/train/'
-  train_folder='/tests/'
+  # train_folder='/tests/'
+  dat_file_data=[]
   for subject_id in range(1, 2):
     for file in [f for f in os.listdir(data_dir+train_folder) if re.match(r'{}_[0-9]+\.tif'.format(subject_id), f)]:
       filename, file_extension = os.path.splitext(file)
-      print("Processing image "+file)
+      # print("Processing image "+file)
       raw_img_mask = data_dir+train_folder+filename+"_mask"+file_extension
       pos_img_path=data_dir+train_folder+file
       img=cv2.imread(pos_img_path,0)
@@ -101,12 +102,18 @@ def generate_positive_dat_file():
       x1,y1,w,h = get_mask_box(subject_id,filename)
       if x1:
         # print(x1,y1,w,h)
-        trace_box_imgs(img,img_mask,[x1,y1,w,h], filename=pos_img_path)
+        # trace_box_imgs(img,img_mask,[x1,y1,w,h], filename=pos_img_path)
+        dat_file_data.append("{} 1 {} {} {} {}".format(pos_img_path,x1,y1,w,h))
+  with open(data_dir+"/opencv/positives.dat", 'w') as f:
+    for item in dat_file_data:
+      f.write("%s\n" % item)
+  return dat_file_data
     
 if __name__ == '__main__':
   from sys import argv
   load_csv_file()
-  generate_positive_dat_file()
+  dat = generate_positive_dat_file()
+  print("opencv_createsamples -info {}positives.dat -num {} -vec positives.vec -w {} -h {}".format(data_dir+"/opencv/", len(dat), img_width, img_height))
   # main(argv)
   #1 96
   # img=cv2.imread(data_dir+"/train/1_96.tif",0)
