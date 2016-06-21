@@ -14,7 +14,7 @@ from PIL import Image
 
 # Any results you write to the current directory are saved as output.
 
-import matplotlib.pylab as plt
+# import matplotlib.pylab as plt
 import os
 import sys
 import re
