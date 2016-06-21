@@ -10,11 +10,11 @@ import pprint
 
 IMGS_BASE_DIR='G:/data/ultrasound-nerve-segmentation'
 data_dir='G:/data/ultrasound-nerve-segmentation'
-ultrasound_bp_cascade_nerve_path=IMGS_BASE_DIR+'/opencv/current_models/cascade_nerve_nerve.xml'
-ultrasound_bp_cascade_nerve_N_path=IMGS_BASE_DIR+'/opencv/current_models/cascade_nerve_n.xml'
-ultrasound_bp_cascade_nerve_S_path=IMGS_BASE_DIR+'/opencv/current_models/cascade_nerve_s.xml'
-ultrasound_bp_cascade_nerve_E_path=IMGS_BASE_DIR+'/opencv/current_models/cascade_nerve_e.xml'
-ultrasound_bp_cascade_nerve_W_path=IMGS_BASE_DIR+'/opencv/current_models/cascade_nerve_w.xml'
+ultrasound_bp_cascade_nerve_path=IMGS_BASE_DIR+'/opencv/models_c_n_s_e_w_75x75/cascade_nerve_nerve.xml'
+ultrasound_bp_cascade_nerve_N_path=IMGS_BASE_DIR+'/opencv/models_c_n_s_e_w_75x75/cascade_nerve_n.xml'
+ultrasound_bp_cascade_nerve_S_path=IMGS_BASE_DIR+'/opencv/models_c_n_s_e_w_75x75/cascade_nerve_s.xml'
+ultrasound_bp_cascade_nerve_E_path=IMGS_BASE_DIR+'/opencv/models_c_n_s_e_w_75x75/cascade_nerve_e.xml'
+ultrasound_bp_cascade_nerve_W_path=IMGS_BASE_DIR+'/opencv/models_c_n_s_e_w_75x75/cascade_nerve_w.xml'
 ultrasound_bp_test=IMGS_BASE_DIR+'/tests/1_2.tif'
 ultrasound_bp_cascade_nerve = cv2.CascadeClassifier(ultrasound_bp_cascade_nerve_path)
 ultrasound_bp_cascade_nerve_n = cv2.CascadeClassifier(ultrasound_bp_cascade_nerve_N_path)
@@ -67,28 +67,28 @@ def get_valid_region_boxes(box, boxes_region, region):
   padding_x = w*slack
   padding_y = h*slack
   
-  if boxes_region.shape[0]>1:
+  if boxes_region.shape[0]>0:
     if region=="n":
-      conds = [boxes_region[:,1]<y, boxes_region[:,0]>(x-w),boxes_region[:,0]<(x+2*w)]
-      valid_boxes=[(x,y,w,h) for box in boxes_region[np.all(conds)]]
+      for x1,y1,w1,h1 in boxes_region:
+        # print("---  {}".format((x1,y1,w1,h1)))
+        if y1<y and x1>(x-w) and x1<(x+2*w):
+          valid_boxes.append((x1,y1,w1,h1))
     elif region=="s":
-      conds = [boxes_region[:,1]<(y+h), boxes_region[:,0]>(x-w),boxes_region[:,0]<(x+2*w)]
-      valid_boxes=[(x,y,w,h) for box in boxes_region[np.all(conds)]]
+      for x1,y1,w1,h1 in boxes_region:
+        # print("---  {}".format((x1,y1,w1,h1)))
+        if y1<(y+h) and x1>(x-w) and x1<(x+2*w):
+          valid_boxes.append((x1,y1,w1,h1))
     elif region=="e":
-      conds = [boxes_region[:,0]>(x+w), boxes_region[:,1]<(y+2*h)]
-      valid_boxes=[(x,y,w,h) for box in boxes_region[np.all(conds)]]
+      for x1,y1,w1,h1 in boxes_region:
+        # print("---  {}".format((x1,y1,w1,h1)))
+        if x1>(x+w) and y1<(y+2*h):
+          valid_boxes.append((x1,y1,w1,h1))
     elif region=="w":
-      conds = [boxes_region[:,0]<x, boxes_region[:,1]<(y+2*h)]
-      valid_boxes=[(x,y,w,h) for box in boxes_region[np.all(conds)]]
-  else:
-    if region=="n" and boxes_region[:,1]<y and boxes_region[:,0]>(x-w) and boxes_region[:,0]<(x+2*w):
-      valid_boxes=boxes_region
-    elif region=="s" and boxes_region[:,1]<(y+h) and boxes_region[:,0]>(x-w) and boxes_region[:,0]<(x+2*w):
-      valid_boxes=boxes_region
-    elif region=="e" and boxes_region[:,0]>(x+w) and boxes_region[:,1]<(y+2*h):
-      valid_boxes=boxes_region
-    elif region=="w" and boxes_region[:,0]<x:
-      valid_boxes=boxes_region
+      for x1,y1,w1,h1 in boxes_region:
+        # print("---  {}".format((x1,y1,w1,h1)))
+        if x1>(x+w) and y1<(y+2*h):
+          valid_boxes.append((x1,y1,w1,h1))
+
   # valid_boxes = boxes_region
   return valid_boxes
     
