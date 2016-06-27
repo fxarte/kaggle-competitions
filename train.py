@@ -87,21 +87,29 @@ def trace_box_imgs(img,img_mask,box, filename=""):
   cv2.imwrite(filename+".combined.png",combined)
   # cv2.imshow("combined", combined)
   # k = cv2.waitKey(0)
-def get_adjacent_box(box,north):
+def get_adjacent_box(box,direction):
   x,y,w,h=box
-  if north=="E":
-    X1=x+w
-    Y1=y
-  elif north=="S":
-    X1=x
-    Y1=y+h
-  elif north=="W":
+  X1=x
+  Y1=y
+  W1=w
+  H1=h
+  if direction=="N":
     X1=x-w
-    Y1=y
-  elif north=="N":
-    X1=x
     Y1=y-h
-  return X1,Y1,w,h
+    W1=3*w
+  elif direction=="S":
+    X1=x-w
+    Y1=y+h
+    W1=3*w
+  elif direction=="E":
+    X1=x+w
+    Y1=y-h
+    H1=3*h
+  elif direction=="W":
+    X1=x-w
+    Y1=y-h
+    H1=3*h
+  return X1,Y1,W1,H1
 
 def save_dat_file(dat_file_data,filename):
   with open(data_dir+"/opencv/"+filename, 'w') as f:
@@ -137,7 +145,7 @@ def generate_training_items():
       if x1:
         # print(x1,y1,w,h)
         # trace_box_imgs(img,img_mask,[x1,y1,w,h], filename=pos_img_path)
-        if subject_id in good_possitives:
+        if True or subject_id in good_possitives:
           box_means.append([x1,y1,w,h])
           dat_file_data.append("{} 1 {} {} {} {}".format("../train/"+file,x1,y1,w,h))
           _X,_Y,_W,_H=get_adjacent_box([x1,y1,w,h], "N")

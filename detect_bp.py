@@ -22,23 +22,28 @@ ultrasound_bp_cascade_nerve_s = cv2.CascadeClassifier(ultrasound_bp_cascade_nerv
 ultrasound_bp_cascade_nerve_e = cv2.CascadeClassifier(ultrasound_bp_cascade_nerve_E_path)
 ultrasound_bp_cascade_nerve_w = cv2.CascadeClassifier(ultrasound_bp_cascade_nerve_W_path)
 pp = pprint.PrettyPrinter(indent=4)
-slack=1
+slack=0
+colors = {"c":(255,0,0), "n":(255,255,0), "s":(255,255,255), "e":(0,255,255), "w":(0,0,255)}
+regions = {"c":"center", "n":"north", "s":"south", "e":"east", "w":"west"}
+
 def merge_imgs(imgs, img_id,subject_id):
   global pp
+  global colors
+  global regions
+
   gray=imgs["gray"]
   mask=imgs["mask"]
   edges = my.image_edges(mask)
   combined = my.image_with_mask(gray, edges)
   c = 0
-  colors = {"c":(0,255,0), "n":(255,255,0), "s":(255,255,255), "e":(0,255,255), "w":(0,0,255)}
-  regions = {"c":"center", "n":"north", "s":"south", "e":"east", "w":"west"}
+  font = cv2.FONT_HERSHEY_PLAIN
   
   for region,boxes in imgs["boxes"].iteritems():
     count=boxes.shape[0]
     color = colors[region]
-    print("region: {}, y: {}\n".format(regions[region], color))
+    # print("region: {}, y: {}\n".format(regions[region], color))
     for pos in range(0,boxes.shape[0]):
-      sys.stdout.write('.')
+      # sys.stdout.write('.')
       box=boxes[pos]
       x,y,w,h = box
       # color = (255,255,0)
@@ -47,13 +52,12 @@ def merge_imgs(imgs, img_id,subject_id):
       cx=x+r
       # cv2.circle(combined,(cx,cy),r,color,1)
       # cv2.PutText(combined, regions[c], (5,10+(c*10)), cv2.CV_FONT_HERSHEY_SIMPLEX,1, color) 
-      font = cv2.FONT_HERSHEY_PLAIN
       x2 = int(x+w+c*2)
       y2 = int(y+h+c*2)
       cv2.rectangle(combined,(int(x),int(y)),(x2,y2),color,1)
-    cv2.putText(combined,regions[region]+": "+str(count),(10,10+(c*20)), font, 1,color,1)
+    cv2.putText(combined,regions[region]+": "+str(count),(10,20+(c*20)), font, 1,color,2)
     c +=1
-  cv2.imwrite("test/"+subject_id+"__"+img_id+"__1109586059486059486054.combined.png",combined);
+  cv2.imwrite("test/"+subject_id+"__"+img_id+"__POS.combined.png",combined);
     
     
 def get_valid_region_boxes(box, boxes_region, region):
@@ -64,29 +68,23 @@ def get_valid_region_boxes(box, boxes_region, region):
   x,y,w,h = box
   # print(x,y,w,h)
   valid_boxes=[]
-  padding_x = w*slack
-  padding_y = h*slack
   
   if boxes_region.shape[0]>0:
     if region=="n":
       for x1,y1,w1,h1 in boxes_region:
-        # print("---  {}".format((x1,y1,w1,h1)))
-        if y1<y and x1>(x-w) and x1<(x+2*w):
+        if y1<(y-(h+h*slack)):
           valid_boxes.append((x1,y1,w1,h1))
     elif region=="s":
       for x1,y1,w1,h1 in boxes_region:
-        # print("---  {}".format((x1,y1,w1,h1)))
-        if y1<(y+h) and x1>(x-w) and x1<(x+2*w):
+        if y1>(y+(h+h*slack)):
           valid_boxes.append((x1,y1,w1,h1))
     elif region=="e":
       for x1,y1,w1,h1 in boxes_region:
-        # print("---  {}".format((x1,y1,w1,h1)))
-        if x1>(x+w) and y1<(y+2*h):
+        if x1>(x+(w+w*slack)):
           valid_boxes.append((x1,y1,w1,h1))
     elif region=="w":
       for x1,y1,w1,h1 in boxes_region:
-        # print("---  {}".format((x1,y1,w1,h1)))
-        if x1>(x+w) and y1<(y+2*h):
+        if x1<(x-(w+w*slack)):
           valid_boxes.append((x1,y1,w1,h1))
 
   # valid_boxes = boxes_region
@@ -117,27 +115,34 @@ def is_BP_nerve(img_gray):
   boxes_s=ultrasound_bp_cascade_nerve_s.detectMultiScale(img_gray,scaleFactor=100,minNeighbors=50,minSize=(70, 70),maxSize=(90, 90))
   boxes_e=ultrasound_bp_cascade_nerve_e.detectMultiScale(img_gray,scaleFactor=100,minNeighbors=50,minSize=(70, 70),maxSize=(90, 90))
   boxes_w=ultrasound_bp_cascade_nerve_w.detectMultiScale(img_gray,scaleFactor=100,minNeighbors=50,minSize=(70, 70),maxSize=(90, 90))
+  
   for b in range(0, len(boxes_c)):
-    vote=0
+    votes=0
     # print("BOX#:{}".format(b))
     valid_boxes=None
     valid_boxes = get_valid_region_boxes(boxes_c[b], boxes_n, "n")
     if(len(valid_boxes)>0):
       boxes["boxes"]["n"] = valid_boxes
+      votes +=1
     valid_boxes=None
     valid_boxes = get_valid_region_boxes(boxes_c[b], boxes_s, "s")
     if(len(valid_boxes)>0):
       boxes["boxes"]["s"] = valid_boxes
+      votes +=1
     valid_boxes=None
     valid_boxes = get_valid_region_boxes(boxes_c[b], boxes_e, "e")
     if(len(valid_boxes)>0):
       boxes["boxes"]["e"] = valid_boxes
+      votes +=1
     valid_boxes=None
     valid_boxes = get_valid_region_boxes(boxes_c[b], boxes_w, "w")
     if(len(valid_boxes)>0):
       boxes["boxes"]["w"] = valid_boxes
+      votes +=1
     valid_boxes=None
-  # print(boxes)
+    if votes>3:
+      boxes["boxes"]["c"]=np.array((boxes_c[b],))
+
   boxes["boxes"]["n"]=np.array(boxes["boxes"]["n"])
   boxes["boxes"]["s"]=np.array(boxes["boxes"]["s"])
   boxes["boxes"]["e"]=np.array(boxes["boxes"]["e"])
@@ -159,12 +164,14 @@ def main(argv):
   positive_truth=False
   negative_truth=False
   c = 0
+  positives=0
+  negatives=0
   for file in [f for f in os.listdir(data_dir+train_folder)]:
     filename, file_extension = os.path.splitext(file)
     split_filename=filename.split('_')
     if len(split_filename)==3:
       continue
-    print("..................................................")
+    # print("..................................................")
     img_id,subject_id=split_filename[0],split_filename[1]
     raw_img_mask = data_dir+train_folder+filename+"_mask"+file_extension
     pos_img_path=data_dir+train_folder+file
@@ -172,16 +179,25 @@ def main(argv):
     img_gray=cv2.imread(pos_img_path,0)
     
     is_nerve = is_BP_nerve(img_gray)
-    # print("------\n{}".format(repr(is_nerve)))
     img_mask=cv2.imread(raw_img_mask,0)
-    is_nerve["mask"] = my.image_edges(img_mask)
-    is_nerve["gray"] = img_gray
-    merge_imgs(is_nerve,img_id,subject_id )
-    if c >= 1:
-      sys.exit(0)
-    else:
+    mask_edges = my.image_edges(img_mask)
+    sys.stdout.write(str(c)+' ')
+    if "c" in is_nerve["boxes"]:
+      # is_nerve["mask"] = mask_edges
+      # is_nerve["gray"] = img_gray
+      # merge_imgs(is_nerve,img_id,subject_id )
       c +=1
+      positives+=1
       continue
+    if c >= 100:
+      print( )
+      # sys.exit(0)
+    else:
+      negatives+=1
+      # combined = my.image_with_mask(img_gray, mask_edges)
+      # cv2.imwrite("test/"+subject_id+"__"+img_id+"__NEG.combined.png",combined);
+      continue
+    '''
     pixels = train.get_pixels(str(subject_id), img_id)
     if pixels:
       positive_truth=True
@@ -226,6 +242,9 @@ def main(argv):
     c +=1
     # if c==15:
       # return
+    '''
+  true_positives="N/A"
+  true_negatives="N/A"
   print("Positives:{}, Negatives:{}, True positives: {}, true negatives:{}".format(positives, negatives, true_positives, true_negatives))
 
 def test():
