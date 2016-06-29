@@ -34,7 +34,46 @@ def get_pixels(subject_id,img_id):
       return row[2]
   return ""
       
+def get_mean_box():
+  box_means=[]
+  train_folder='/train/'
+  for subject_id in range(1, 48):
+    for file in [f for f in os.listdir(data_dir+train_folder) if re.match(r'{}_[0-9]+\.tif'.format(subject_id), f)]:
+      filename, file_extension = os.path.splitext(file)
+      x1,y1,w,h = get_mask_box(subject_id,filename)
+      if x1:
+        box_means.append([x1,y1,w,h])
+  
+  # data=np.array(box_means)
+  # np.save("box_data.npy", data)
+  data=np.load("box_data.npy")
+  plt.figure(figsize=(12, 12))
+  plt.subplot(231)
+  plt.scatter(data[:,2], data[:,3])
+  plt.title("Widths vs Heights")
 
+  plt.subplot(232)
+  plt.scatter(data[:,0], data[:,1])
+  plt.title("X vs Y")
+
+  plt.subplot(233)
+  plt.scatter(data[:,0], data[:,2])
+  plt.title("X vs Widths")
+  
+  plt.subplot(234)
+  plt.scatter(data[:,1], data[:,3])
+  plt.title("Y vs Heights")
+  
+  plt.subplot(235)
+  plt.scatter(data[:,0], data[:,3])
+  plt.title("X vs Heigths")
+  
+  plt.subplot(236)
+  plt.scatter(data[:,1], data[:,2])
+  plt.title("Y vs Widths")
+  
+  plt.show()
+  print(np.mean(np.dstack(box_means), axis=2))
 def pixel_to_box(pixels):
   ''' Pixels run from top to bottom then to the right
   img_width=580
@@ -66,7 +105,8 @@ def pixel_to_box(pixels):
       Y2=_y + run_length
   # X2 the last pixel coordinate
   X2=_x
-  return X1,Y1, (X2-X1), (Y2-Y1)
+  pad=20
+  return X1-pad,Y1-pad, (X2-X1)+2*pad, (Y2-Y1)+2*pad
     
 def get_mask_box(subject_id,filename):
   m=re.search('{}_([0-9]+)'.format(subject_id), filename)
@@ -131,6 +171,7 @@ def generate_training_items():
   negatives=[]
   good_possitives=[1,5,10,14,21,25,26,29,32,41,43,47]
   box_means=[]
+  ADJACENT=False
   for subject_id in range(1, 48):
     for file in [f for f in os.listdir(data_dir+train_folder) if re.match(r'{}_[0-9]+\.tif'.format(subject_id), f)]:
       filename, file_extension = os.path.splitext(file)
@@ -142,36 +183,39 @@ def generate_training_items():
       # height, width = cv2.imread(raw_img_mask,0).shape[:2]
       # print(width, height);
       x1,y1,w,h = get_mask_box(subject_id,filename)
+      # if subject_id>5:
+        # break
       if x1:
         # print(x1,y1,w,h)
-        # trace_box_imgs(img,img_mask,[x1,y1,w,h], filename=pos_img_path)
+        trace_box_imgs(img,img_mask,[x1,y1,w,h], filename=data_dir+"/output/"+file+".POS.png")
         if True or subject_id in good_possitives:
           box_means.append([x1,y1,w,h])
           dat_file_data.append("{} 1 {} {} {} {}".format("../train/"+file,x1,y1,w,h))
-          _X,_Y,_W,_H=get_adjacent_box([x1,y1,w,h], "N")
-          dat_file_data_N.append("{} 1 {} {} {} {}".format("../train/"+file,_X,_Y,_W,_H))
-          _X,_Y,_W,_H=get_adjacent_box([x1,y1,w,h], "S")
-          dat_file_data_S.append("{} 1 {} {} {} {}".format("../train/"+file,_X,_Y,_W,_H))
-          _X,_Y,_W,_H=get_adjacent_box([x1,y1,w,h], "E")
-          dat_file_data_E.append("{} 1 {} {} {} {}".format("../train/"+file,_X,_Y,_W,_H))
-          _X,_Y,_W,_H=get_adjacent_box([x1,y1,w,h], "W")
-          dat_file_data_W.append("{} 1 {} {} {} {}".format("../train/"+file,_X,_Y,_W,_H))
+          if ADJACENT:
+            _X,_Y,_W,_H=get_adjacent_box([x1,y1,w,h], "N")
+            dat_file_data_N.append("{} 1 {} {} {} {}".format("../train/"+file,_X,_Y,_W,_H))
+            _X,_Y,_W,_H=get_adjacent_box([x1,y1,w,h], "S")
+            dat_file_data_S.append("{} 1 {} {} {} {}".format("../train/"+file,_X,_Y,_W,_H))
+            _X,_Y,_W,_H=get_adjacent_box([x1,y1,w,h], "E")
+            dat_file_data_E.append("{} 1 {} {} {} {}".format("../train/"+file,_X,_Y,_W,_H))
+            _X,_Y,_W,_H=get_adjacent_box([x1,y1,w,h], "W")
+            dat_file_data_W.append("{} 1 {} {} {} {}".format("../train/"+file,_X,_Y,_W,_H))
 
       else:
+        trace_box_imgs(img,img_mask,[0,0,1,1], filename=data_dir+"/output/"+file+".NEG.png")
         negatives.append("{}".format("../train/"+file))
 
-  # print(np.mean(np.dstack(box_means), axis=2))
   # return
 
   #Creates the positives.dat file
   with open(data_dir+"/opencv/positives.dat", 'w') as f:
     for item in dat_file_data:
       f.write("%s\n" % item)
-  
-  save_dat_file(dat_file_data_N, "positives_n.dat")
-  save_dat_file(dat_file_data_S, "positives_s.dat")
-  save_dat_file(dat_file_data_E, "positives_e.dat")
-  save_dat_file(dat_file_data_W, "positives_w.dat")
+  if ADJACENT:
+    save_dat_file(dat_file_data_N, "positives_n.dat")
+    save_dat_file(dat_file_data_S, "positives_s.dat")
+    save_dat_file(dat_file_data_E, "positives_e.dat")
+    save_dat_file(dat_file_data_W, "positives_w.dat")
   
   #Creates the negatives.txt file
   with open(data_dir+"/opencv/negatives.txt", 'w') as f:
@@ -180,17 +224,20 @@ def generate_training_items():
   opencv_dir=data_dir+"/opencv"
   numPos=len(dat_file_data)
   numNeg=len(negatives)
-  window_w=90
-  window_h=100
+  window_w=130
+  window_h=160
   #Samples command
-  print("{}/opencv_createsamples.exe -info {}/positives.dat -num {} -vec {}/positives.vec -w {} -h {}"
-  .format(bin_dir, opencv_dir, numPos, opencv_dir, window_w, window_h))
+  roations="-maxxangle 0.1 -maxyangle 0 -maxzangle 0.1"
+  bgcolor="-bgcolor 0 -bgthresh 8"
+  print("{}/opencv_createsamples.exe -info {}/positives.dat -num {} -vec {}/positives.vec {} {} -w {} -h {}"
+  .format(bin_dir, opencv_dir, numPos, opencv_dir, bgcolor, roations, window_w, window_h))
   
-  print("------ Adjacebnt regions -----")
-  print("{}/opencv_createsamples.exe -info {}/positives_n.dat -num {} -vec {}/positives_n.vec -w {} -h {}".format(bin_dir, opencv_dir, numPos, opencv_dir, window_w, window_h))
-  print("{}/opencv_createsamples.exe -info {}/positives_s.dat -num {} -vec {}/positives_s.vec -w {} -h {}".format(bin_dir, opencv_dir, numPos, opencv_dir, window_w, window_h))
-  print("{}/opencv_createsamples.exe -info {}/positives_e.dat -num {} -vec {}/positives_e.vec -w {} -h {}".format(bin_dir, opencv_dir, numPos, opencv_dir, window_w, window_h))
-  print("{}/opencv_createsamples.exe -info {}/positives_w.dat -num {} -vec {}/positives_w.vec -w {} -h {}".format(bin_dir, opencv_dir, numPos, opencv_dir, window_w, window_h))
+  if ADJACENT:
+    print("------ Adjacebnt regions -----")
+    print("{}/opencv_createsamples.exe -info {}/positives_n.dat -num {} -vec {}/positives_n.vec -w {} -h {}".format(bin_dir, opencv_dir, numPos, opencv_dir, window_w, window_h))
+    print("{}/opencv_createsamples.exe -info {}/positives_s.dat -num {} -vec {}/positives_s.vec -w {} -h {}".format(bin_dir, opencv_dir, numPos, opencv_dir, window_w, window_h))
+    print("{}/opencv_createsamples.exe -info {}/positives_e.dat -num {} -vec {}/positives_e.vec -w {} -h {}".format(bin_dir, opencv_dir, numPos, opencv_dir, window_w, window_h))
+    print("{}/opencv_createsamples.exe -info {}/positives_w.dat -num {} -vec {}/positives_w.vec -w {} -h {}".format(bin_dir, opencv_dir, numPos, opencv_dir, window_w, window_h))
 
   #Train command
   stages=5
@@ -201,14 +248,16 @@ def generate_training_items():
   print("{}/opencv_traincascade.exe -data data -vec positives.vec -bg negatives.txt -numPos {} -numNeg {} -numStages {} -minHitRate {} -featureType LBP -w {} -h {}"
   .format(bin_dir, _trainNumPos,numNeg,stages,minHitRate, window_w, window_h))
   
-  print("------ Adjacebnt regions -----")
-  print("{}/opencv_traincascade.exe -data data -vec positives_n.vec -bg negatives.txt -numPos {} -numNeg {} -numStages {} -minHitRate {} -featureType LBP -w {} -h {}".format(bin_dir, _trainNumPos,numNeg,stages,minHitRate, window_w, window_h))
-  print("{}/opencv_traincascade.exe -data data -vec positives_s.vec -bg negatives.txt -numPos {} -numNeg {} -numStages {} -minHitRate {} -featureType LBP -w {} -h {}".format(bin_dir, _trainNumPos,numNeg,stages,minHitRate, window_w, window_h))
-  print("{}/opencv_traincascade.exe -data data -vec positives_e.vec -bg negatives.txt -numPos {} -numNeg {} -numStages {} -minHitRate {} -featureType LBP -w {} -h {}".format(bin_dir, _trainNumPos,numNeg,stages,minHitRate, window_w, window_h))
-  print("{}/opencv_traincascade.exe -data data -vec positives_w.vec -bg negatives.txt -numPos {} -numNeg {} -numStages {} -minHitRate {} -featureType LBP -w {} -h {}".format(bin_dir, _trainNumPos,numNeg,stages,minHitRate, window_w, window_h))
+  if ADJACENT:
+    print("------ Adjacebnt regions -----")
+    print("{}/opencv_traincascade.exe -data data -vec positives_n.vec -bg negatives.txt -numPos {} -numNeg {} -numStages {} -minHitRate {} -featureType LBP -w {} -h {}".format(bin_dir, _trainNumPos,numNeg,stages,minHitRate, window_w, window_h))
+    print("{}/opencv_traincascade.exe -data data -vec positives_s.vec -bg negatives.txt -numPos {} -numNeg {} -numStages {} -minHitRate {} -featureType LBP -w {} -h {}".format(bin_dir, _trainNumPos,numNeg,stages,minHitRate, window_w, window_h))
+    print("{}/opencv_traincascade.exe -data data -vec positives_e.vec -bg negatives.txt -numPos {} -numNeg {} -numStages {} -minHitRate {} -featureType LBP -w {} -h {}".format(bin_dir, _trainNumPos,numNeg,stages,minHitRate, window_w, window_h))
+    print("{}/opencv_traincascade.exe -data data -vec positives_w.vec -bg negatives.txt -numPos {} -numNeg {} -numStages {} -minHitRate {} -featureType LBP -w {} -h {}".format(bin_dir, _trainNumPos,numNeg,stages,minHitRate, window_w, window_h))
 
 if __name__ == '__main__':
   from sys import argv
   load_csv_file()
+  # get_mean_box()
   generate_training_items()
   # main(argv)
