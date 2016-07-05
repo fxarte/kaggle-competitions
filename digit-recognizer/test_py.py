@@ -13,8 +13,12 @@ import pickle
 
 
 def save_predictor(predictor, params, score=None):
-    # print(params)
+    print(params)
     classifier=type(predictor).__name__
+    base_estimator=''
+    if hasattr(predictor, 'base_estimator'):
+        print("base_estimator FOUND")
+        base_estimator="__{}".format(type(predictor.base_estimator).__name__)
     s = []
     _score = ""
     if score:
@@ -22,7 +26,7 @@ def save_predictor(predictor, params, score=None):
     if params:
         for k, v in params.iteritems():
             s.append("{}.{}".format(k, v))
-    predictor_filename = "{}__{}{}".format(classifier,"..".join(s), _score)
+    predictor_filename = "{}{}__{}{}".format(classifier,base_estimator,"..".join(s), _score)
     with open(predictor_filename+'.pkl', 'wb') as output:
         pickle.dump(predictor, output, pickle.HIGHEST_PROTOCOL)
     return predictor_filename
@@ -85,7 +89,7 @@ def main():
     print("Loadind data")
     target = None
     train = None
-    REFRESH=False
+    REFRESH=True
     RETRAIN_MODEL=True
     if REFRESH:
         dataset = genfromtxt(open('train.csv','r'), delimiter=',', dtype='f8')[1:]
@@ -111,7 +115,7 @@ def main():
     X, X_test, y, y_test = train_test_split(train, target, test_size=0.2, random_state=42)
     if RETRAIN_MODEL:
         #create and train the random forest
-        base_estimator_best_args={'n_jobs':-1, 'verbose':2, 'n_estimators':400}
+        base_estimator_best_args={'n_jobs':-1, 'verbose':2, 'n_estimators':100}
         base_estimator = RandomForestClassifier(**base_estimator_best_args)
         # base_estimator_best_args={'n_jobs':-1, 'min_samples_split': 4, 'verbose':0}
         # base_estimator= ExtraTreesClassifier(**base_estimator_best_args)
