@@ -1,5 +1,6 @@
 #-*- coding: utf8 -*-
 #@see https://www.kaggle.com/kakauandme/digit-recognizer/tensorflow-deep-nn/comments
+#@see https://www.kaggle.com/kobakhit/digit-recognizer/digit-recognizer-in-python-using-cnn
 
 
 import numpy as np
@@ -22,7 +23,7 @@ LEARNING_RATE = 1e-4
 TRAINING_ITERATIONS = 5000 # After trying 12k 5k was enough
 
 DROPOUT = 0.5
-BATCH_SIZE = 50
+BATCH_SIZE = 500
 
 # set to 0 to train on all available data
 VALIDATION_SIZE = 2000
