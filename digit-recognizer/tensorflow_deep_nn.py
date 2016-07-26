@@ -1,5 +1,5 @@
 #-*- coding: utf8 -*-
-#@see https://www.kaggle.com/kakauandme/digit-recognizer/tensorflow-deep-nn/comments
+#@see https://www.kaggle.com/kakauandme/digit-recognizer/tensorflow-deep-nn
 #@see https://www.kaggle.com/kobakhit/digit-recognizer/digit-recognizer-in-python-using-cnn
 
 
@@ -20,7 +20,7 @@ import tensorflow as tf
 # settings
 LEARNING_RATE = 1e-4
 # set to 20000 on local environment to get 0.99 accuracy
-TRAINING_ITERATIONS = 5000 # After trying 12k 5k was enough
+TRAINING_ITERATIONS = 2500 # After trying 12k 5k was enough
 
 DROPOUT = 0.5
 BATCH_SIZE = 500
@@ -358,3 +358,12 @@ np.savetxt('submission_softmax.csv',
            header = 'ImageId,Label', 
            comments = '', 
            fmt='%d')
+
+
+
+layer1_grid = layer1.eval(feed_dict={x: test_images[IMAGE_TO_DISPLAY:IMAGE_TO_DISPLAY+1], keep_prob: 1.0})
+plt.axis('off')
+plt.imshow(layer1_grid[0], cmap=cm.seismic )
+import sys
+hermitaño
+
