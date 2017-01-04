@@ -1,4 +1,5 @@
-Competition URL: https://www.kaggle.com/c/bosch-production-line-performance
+###Facebook V: Predicting Check Ins
+Competition URL: https://www.kaggle.com/c/facebook-v-predicting-check-ins
 Performance:
     MyPC
         Training Data loaded: 1183747 items from: '../input/train_numeric.csv'
