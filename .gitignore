@@ -1,5 +1,7 @@
 data/
 __pycache__/
+**/input/
+**/output/
 input/
 output/
 *.pickle
@@ -7,3 +9,5 @@ output/
 *.py[cod]
 *.pkl.z
 *.npy
+*.pdf
+*.pbz2
