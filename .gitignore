@@ -1,3 +1,9 @@
 data/
-.pickle
 __pycache__/
+input/
+output/
+*.pickle
+*.pkl
+*.py[cod]
+*.pkl.z
+*.npy
