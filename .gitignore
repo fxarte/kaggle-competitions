@@ -8,7 +8,8 @@ output/
 *.pkl
 *.py[cod]
 *.pkl.z
-*.npy
+*.np[yz]
 *.pdf
 *.pbz2
+*.zip
 *.png
