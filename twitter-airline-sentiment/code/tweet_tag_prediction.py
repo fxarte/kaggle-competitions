@@ -180,8 +180,8 @@ if __name__=="__main__":
             vect__max_df: 1.0
             vect__max_features: None
             vect__ngram_range: (1, 2)
-
         '''
+
         best_params = {
             'clf__alpha': 0.0000002# reduce and the likelihood of the class increases
             ,'clf__n_iter': 5
