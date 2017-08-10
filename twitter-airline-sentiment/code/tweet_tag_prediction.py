@@ -28,6 +28,7 @@ _RE_tweet_hashtag = re.compile('#\\w+')
 _RE_tweet_emojis = re.compile('[\U0001F602-\U0001F64F]')
 _RE_city_airport_code = re.compile('[A-Z]{3,}')
 
+import plot_learning_curve as lc
 
 def get_data(file_path, refresh_cached=False, for_training=True):
     '''
@@ -118,7 +119,7 @@ if __name__=="__main__":
     X, y = preprocess_data(X, y)
     # for a,b in zip(y[:3], X[:3]):
         # print(a, '  ', " ".join(b))
-    # import sys
+    import sys
     # sys.exit()
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
@@ -147,7 +148,7 @@ if __name__=="__main__":
         'clf__n_iter': (5, 10),#5, 10, 5
     }
     
-    learn = "o"
+    learn = "oo"
 
     if learn=="o":
         grid_search = GridSearchCV(pipeline, parameters, n_jobs=-1, verbose=1, cv=5)
@@ -193,7 +194,16 @@ if __name__=="__main__":
             ,'vect__ngram_range': (1, 2)
         }
         pipeline.set_params(**best_params)
+        
+        
+        #Learning curve
+        plt = lc.plot_learning_curve(pipeline, "Teewt tag Prediction", X, y, ylim=None, cv=None,
+            n_jobs=1, train_sizes=np.linspace(.1, 1.0, 5))
+        plt.savefig('TeewtTagPrediction.png')
+        sys.exit()
+        
         pipeline.fit(X_train, y_train)
+        
         print("  training done!")
         scores = cross_val_score(pipeline, X_test, y_test)
         score = scores.mean()

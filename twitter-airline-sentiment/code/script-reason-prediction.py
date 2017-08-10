@@ -3,6 +3,7 @@
 # For example, here's several helpful packages to load in 
 
 import re, html, unicodedata, time#, os, joblib
+import pprint
 
 #3rd party
 import numpy as np # linear algebra
@@ -15,11 +16,12 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer#, TfidfVectorizer
 from sklearn.linear_model import SGDClassifier
+from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn import preprocessing
 from sklearn.decomposition import LatentDirichletAllocation
-from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, f1_score
 from sklearn.utils.multiclass import unique_labels
-
 # nltk
 from nltk.stem.snowball import SnowballStemmer, EnglishStemmer
 
@@ -86,7 +88,7 @@ def cleanup_data(df):
         remove uninformative data
     '''
     # df = df[pd.notnull(df['negativereason'])]
-    df=df.fillna('NOREASON')
+    df=df.fillna('NONEGATIVEREASON')
     return df
 
 def build_lda(X, y=None, n_topics = 8):
@@ -112,7 +114,78 @@ def build_lda(X, y=None, n_topics = 8):
     ))
     lda_model = lda_model.fit(X, y)
     return lda_model
+
     
+def explore_SVC(X, y):
+    '''Best Params:
+    estimator__C: 10
+    estimator__decision_function_shape: 'ovo'
+    estimator__kernel: 'linear'
+    tfidf__norm: 'l2'
+    tfidf__use_idf: True
+    vectorizer__max_df: 1.0
+    vectorizer__max_features: None
+    vectorizer__ngram_range: (1, 2)
+    '''
+    pipeline = Pipeline([
+         ('preprocessor', TextPreprocessor())
+        ,('vectorizer', CountVectorizer())
+        ,('tfidf', TfidfTransformer())
+        # ,('scaler', preprocessing.StandardScaler(with_mean=False))
+        ,('estimator', SVC(class_weight='balanced', random_state=42, cache_size=7000,max_iter=700))
+    ])
+    
+    parameters = {
+        'vectorizer__max_df': [.5, .75, 1.0]
+        ,'vectorizer__max_features': [None, 5000, 10000, 20000]
+        ,'vectorizer__ngram_range': [(1, 1), (1, 2)]
+        ,'tfidf__use_idf': [True, False]
+        ,'tfidf__norm': ['l1', 'l2']
+        ,'estimator__kernel': ['rbf', 'linear']
+        ,'estimator__C': [3, 10, 13]
+        # ,'estimator__gamma': ('auto', 1)
+        # ,'estimator__degree': (1,3,5)
+        ,'estimator__decision_function_shape' : ['ovo', 'ovr']
+    }
+    # pipeline.set_params(**best_params)
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+    # 90 fits in 30 mins
+    # 12960 
+    grid_search = GridSearchCV(pipeline, parameters, n_jobs=7, verbose=1, cv=3)
+    pprint.pprint(parameters)
+    t0 = time.time()
+    grid_search.fit(X_train, y_train)
+    print("done in %0.3fs" % (time.time() - t0))
+    print()
+
+    print("Best score: %0.3f" % grid_search.best_score_)
+    print("Best parameters set:")
+    best_parameters = grid_search.best_estimator_.get_params()
+    for param_name in sorted(parameters.keys()):
+        print("\t%s: %r" % (param_name, best_parameters[param_name]))
+
+    
+    
+def build_SVM_pipeline():
+    best_params = {
+        'estimator__C': 10
+        ,'estimator__decision_function_shape': 'ovo'
+        ,'estimator__kernel': 'linear'
+        ,'tfidf__norm': 'l2'
+        ,'tfidf__use_idf': True
+        ,'vectorizer__max_df': 1.0
+        ,'vectorizer__max_features': None
+        ,'vectorizer__ngram_range': (1, 2)
+    }
+    pipeline = Pipeline((
+         ('preprocessor', TextPreprocessor())
+        ,('vectorizer', CountVectorizer())
+        ,('tfidf', TfidfTransformer())
+        ,('estimator', SVC(class_weight='balanced', random_state=42, cache_size=7000))
+    ))
+    pipeline.set_params(**best_params)
+    return pipeline
 
 prev_cnf_matrix=None
 prev_scoring_values={}
@@ -124,7 +197,7 @@ def train_reason_model(X, y, model_name=None):
         ,'estimator__random_state':42
         ,'estimator__n_jobs':-1
         ,'estimator__class_weight':'balanced'
-        # ,'estimator__loss':'log'
+        ,'estimator__loss':'log'
         ,'tfidf__norm': 'l2'
         ,'tfidf__use_idf': True
         ,'vectorizer__max_df': 1.0
@@ -138,6 +211,7 @@ def train_reason_model(X, y, model_name=None):
         ,('estimator', SGDClassifier())
     ))
     reason_model_pipeline.set_params(**best_params)
+    reason_model_pipeline = build_SVM_pipeline()
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
     t0 = time.time()
@@ -155,6 +229,9 @@ def train_reason_model(X, y, model_name=None):
     y_true, y_pred = y_test, reason_model_pipeline.predict(X_test)
     acc_score = accuracy_score(y_true, y_pred)
     print("Accuracy Score", acc_score)
+    
+    f1_score_val = f1_score(y_true, y_pred, average='weighted')
+    print("F1 Score", f1_score_val)
     
 
     cnf_matrix = confusion_matrix(y_true, y_pred)
@@ -260,42 +337,49 @@ def train_reason_model(X, y, model_name=None):
     # print(classification_report(y_true, y_pred))
     return reason_model_pipeline
 
-    
-df = pd.read_csv('../input/Tweets.csv')
-df = cleanup_data(df)
+if __name__=="__main__":
+    df = pd.read_csv('../input/Tweets.csv')
+    df = cleanup_data(df)
+    df['COUNTER'] =1 
+    # sent_count_per_reason = df.groupby(['airline_sentiment', 'negativereason'])['COUNTER'].sum()
+    sent_count_per_reason = df.groupby(['airline_sentiment', 'negativereason']).size()
+    print(sent_count_per_reason)
+    import sys
 
-#preprocess
-X=df['text'].values
-y=df['negativereason'].values
+    #preprocess
+    X=df['text'].values
+    y=df['negativereason'].values
+    # explore_SVC(X, y)
+    # sys.exit()
 
-print("Model with regular data")
-train_reason_model(X,y, model_name="Negative Reason model")
+    print("Model with regular data")
+    train_reason_model(X,y, model_name="Negative Reason model")
 
-t0 = time.time()
-print("Enhancing X")
-# Build the topics words dictionary
-n_topics = 8
-lda_pipeline_model = build_lda(X, n_topics=n_topics)
-n_top_significant_words=10;
-tf_feature_names = lda_pipeline_model.get_params()['vectorizer'].get_feature_names()
-topic_significant_words=dict()
-for topic_idx, topic in enumerate(lda_pipeline_model.get_params()['estimator'].components_):
-    topic_significant_words[topic_idx] = " ".join([tf_feature_names[i] for i in topic.argsort()[:-n_top_significant_words - 1:-1]])
+    t0 = time.time()
+    print("Enhancing X")
+    # Build the topics words dictionary
+    n_topics = 8
+    lda_pipeline_model = build_lda(X, n_topics=n_topics)
+    n_top_significant_words=10;
+    tf_feature_names = lda_pipeline_model.get_params()['vectorizer'].get_feature_names()
+    topic_significant_words=dict()
+    for topic_idx, topic in enumerate(lda_pipeline_model.get_params()['estimator'].components_):
+        topic_significant_words[topic_idx] = " ".join([tf_feature_names[i] for i in topic.argsort()[:-n_top_significant_words - 1:-1]])
 
-#Add the most significant topic words to the document
-docs_topic_distr = lda_pipeline_model.transform(X)
+    #Add the most significant topic words to the document
+    docs_topic_distr = lda_pipeline_model.transform(X)
 
-enhanced_X=[]
-for x, doc_topic_distr in zip(X, docs_topic_distr):
-    top_topics = doc_topic_distr.argsort()[:-n_topics-1:-1]
-    topic_words_to_be_added=''
-    for top_topic_idx in top_topics:
-        topic_words_to_be_added += ' '+topic_significant_words[top_topic_idx]
-    enhanced_X.append(x.strip()+' '+topic_words_to_be_added)
-X=enhanced_X
-print("Done enhancing in %0.3fs" % (time.time() - t0))
-#Retrain using enhanced X
-print()
-print()
-print("Training model with enhanced data")
-train_reason_model(X,y, model_name="Negative Reason model Trained with enhanced X")
+    enhanced_X=[]
+    for x, doc_topic_distr in zip(X, docs_topic_distr):
+        top_topics = doc_topic_distr.argsort()[:-n_topics-1:-1]
+        topic_words_to_be_added=''
+        for top_topic_idx in top_topics:
+            topic_words_to_be_added += ' '+topic_significant_words[top_topic_idx]
+        enhanced_X.append(x.strip()+' '+topic_words_to_be_added)
+    X=enhanced_X
+    print("Done enhancing in %0.3fs" % (time.time() - t0))
+    #Retrain using enhanced X
+    print()
+    print()
+    print("Training model with enhanced data")
+    train_reason_model(X,y, model_name="Negative Reason model Trained with enhanced X")
